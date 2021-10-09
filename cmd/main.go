@@ -17,7 +17,7 @@ func main() {
 	logger, _ := zap.NewProduction()
 
 	svc := prom.New(logger)
-	//svc = posthttp.NewLoggingMiddleware(svc, logger)
+	svc = api.NewLoggingMiddleware(svc, logger)
 
 	errs := make(chan error, 2)
 

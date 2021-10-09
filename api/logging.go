@@ -13,7 +13,7 @@ type loggingMiddleware struct {
 	svc    prom.Service
 }
 
-func (l loggingMiddleware) PromRemoteWrite(particles map[string]interface{}, url string, token string) (err error) {
+func (l loggingMiddleware) PromRemoteWrite(particles []prom.PromParticle, url string, token string) (err error) {
 	defer func(begin time.Time) {
 		if err != nil {
 			l.logger.Warn("method call: prom_push",
@@ -25,5 +25,12 @@ func (l loggingMiddleware) PromRemoteWrite(particles map[string]interface{}, url
 		}
 	}(time.Now())
 	return l.svc.PromRemoteWrite(particles, url, token)
+}
+
+func NewLoggingMiddleware(svc prom.Service, logger *zap.Logger) prom.Service {
+	return &loggingMiddleware{
+		logger: logger,
+		svc:    svc,
+	}
 }
 

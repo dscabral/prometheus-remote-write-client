@@ -36,14 +36,14 @@ import (
 
 const (
 	defaulHTTPClientTimeout = 30 * time.Second
-	//defaultUserAgent        = "promremote-go/1.0.0"
+	defaultUserAgent        = "promremote-go/1.0.0"
 )
 
 // DefaultConfig represents the default configuration used to construct a client.
 var DefaultConfig = Config{
 	//WriteURL:          DefaultRemoteWrite,
 	HTTPClientTimeout: defaulHTTPClientTimeout,
-	//UserAgent:         defaultUserAgent,
+	UserAgent:         defaultUserAgent,
 }
 
 // Label is a metric label.
@@ -154,26 +154,26 @@ func WriteURLOption(writeURL string) ConfigOption {
 	}
 }
 
-//// HTTPClientTimeoutOption sets the timeout that is set for the client.
-//func HTTPClientTimeoutOption(httpClientTimeout time.Duration) ConfigOption {
-//	return func(c *Config) {
-//		c.HTTPClientTimeout = httpClientTimeout
-//	}
-//}
-//
-//// HTTPClientOption sets the HTTP client that is set for the client.
-//func HTTPClientOption(httpClient *http.Client) ConfigOption {
-//	return func(c *Config) {
-//		c.HTTPClient = httpClient
-//	}
-//}
-//
-//// UserAgent sets the `User-Agent` header in the request.
-//func UserAgent(userAgent string) ConfigOption {
-//	return func(c *Config) {
-//		c.UserAgent = userAgent
-//	}
-//}
+// HTTPClientTimeoutOption sets the timeout that is set for the client.
+func HTTPClientTimeoutOption(httpClientTimeout time.Duration) ConfigOption {
+	return func(c *Config) {
+		c.HTTPClientTimeout = httpClientTimeout
+	}
+}
+
+// HTTPClientOption sets the HTTP client that is set for the client.
+func HTTPClientOption(httpClient *http.Client) ConfigOption {
+	return func(c *Config) {
+		c.HTTPClient = httpClient
+	}
+}
+
+// UserAgent sets the `User-Agent` header in the request.
+func UserAgent(userAgent string) ConfigOption {
+	return func(c *Config) {
+		c.UserAgent = userAgent
+	}
+}
 
 type client struct {
 	writeURL   string

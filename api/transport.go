@@ -2,9 +2,9 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	kithttp "github.com/go-kit/kit/transport/http"
 	"github.com/go-zoo/bone"
-	"io/ioutil"
 	"net/http"
 	prom "prometheus_remote_client"
 	"strings"
@@ -41,10 +41,7 @@ func decodeAddRequest(_ context.Context, r *http.Request) (interface{}, error) {
 		token:     r.Header.Get("Authorization"),
 	}
 
-	data, err := ioutil.ReadAll(r.Body)
-	if err == nil && data != nil {
-    	req.body = data
-	} else {
+	if err := json.NewDecoder(r.Body).Decode(&req.particles); err != nil {
 		return nil, prom.ErrMalformedEntity
 	}
 	return req, nil

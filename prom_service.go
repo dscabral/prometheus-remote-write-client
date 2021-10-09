@@ -8,8 +8,6 @@ import (
 	"go.uber.org/zap"
 	"os"
 	"prometheus_remote_client/prometheus"
-	"regexp"
-	"strings"
 )
 
 var (
@@ -25,8 +23,14 @@ var (
 	ErrInvalidQueryParams = errors.New("invalid query params")
 )
 
+type PromParticle struct {
+	Name  string
+	Label string
+	Value int64
+}
+
 type Service interface {
-	PromRemoteWrite(particles map[string]interface{}, url string, token string) error
+	PromRemoteWrite(particles []PromParticle, url string, token string) error
 }
 
 var _ Service = (*promService)(nil)
@@ -35,10 +39,9 @@ type promService struct {
 	logger *zap.Logger
 }
 
-func (p promService) PromRemoteWrite(particles map[string]interface{}, url string, token string) error {
+func (p promService) PromRemoteWrite(particles []PromParticle, url string, token string) error {
 	var tsList = prometheus.TSList{}
-	//statsMap := structs.Map(particles)
-	convertToPromParticle(particles, "", &tsList)
+	convertToPromParticle(particles, &tsList)
 
 	p.logger.Info("writing to", zap.String("url", url))
 
@@ -85,60 +88,41 @@ func (p promService) PromRemoteWrite(particles map[string]interface{}, url strin
 	return nil
 }
 
-func convertToPromParticle(m map[string]interface{}, label string, tsList *prometheus.TSList) {
-	for k, v := range m {
-		switch c := v.(type) {
-		case map[string]interface{}:
-			if k == "name" || k == "estimate" {
-				for _, value := range c {
-					m, ok := value.(map[string]interface{})
-					if !ok {
-						continue
-					}
-					var lbl string
-					var dtpt interface{}
-					for k, v := range m {
-						switch k {
-						case "name":
-							lbl = fmt.Sprintf("%v", v)
-						case "estimate":
-							dtpt = v
-						}
-					}
-					tsList = makePromParticle(label+k, lbl, dtpt, tsList, false)
-					//fmt.Printf("%s{intance=%q name:%q} %d\n", camelToSnake(label+k), "gw", lbl, dtpt)
-				}
-			} else {
-				convertToPromParticle(c, label+k, tsList)
-			}
-		case interface{}:
-			tsList = makePromParticle(label+k, "", v, tsList, false)
-			//fmt.Printf("%s{intance=%q} %d\n", camelToSnake(label+k), "gw", v)
-		}
+func convertToPromParticle(p []PromParticle, tsList *prometheus.TSList) {
+	for _, particle := range p {
+		tsList = makePromParticle(particle.Label, particle.Name, particle.Value, tsList)
 	}
 }
 
-func makePromParticle(label string, k string, v interface{}, tsList *prometheus.TSList, quantile bool) *prometheus.TSList {
+func makePromParticle(labelName string, k string, v interface{}, tsList *prometheus.TSList) *prometheus.TSList {
+	mapQuantiles := make(map[string]float64)
+	mapQuantiles["P50"] = 0.50
+	mapQuantiles["P90"] = 0.90
+	mapQuantiles["P95"] = 0.95
+	mapQuantiles["P99"] = 0.99
+
 	var dpFlag prometheus.Dp
 	var labelsListFlag prometheus.LabelList
-	labelsListFlag.Set(fmt.Sprintf("__name__:%s", camelToSnake(label)))
-	labelsListFlag.Set("instance:gw")
-	labelsListFlag.Set(fmt.Sprintf("name:%s", k))
+	labelsListFlag.Set(fmt.Sprintf("__name__:%s", labelName))
+	labelsListFlag.Set("instance:demo_project")
+	if k != "" {
+		if value, ok := mapQuantiles[k]; ok {
+			labelsListFlag.Set(fmt.Sprintf("quantile:%.2f", value))
+			fmt.Printf("%s{intance=%q, quantile=%q} %d\n", labelName, "demo_project", k, value)
+		} else {
+			labelsListFlag.Set(fmt.Sprintf("name:%s", k))
+			fmt.Printf("%s{intance=%q, name=%q} %d\n", labelName, "demo_project", k, v)
+		}
+	} else {
+		fmt.Printf("%s{intance=%q} %d\n", labelName, "demo_project", v)
+	}
 	dpFlag.Set(fmt.Sprintf("now,%d", v))
 	*tsList = append(*tsList, prometheus.TimeSeries{
 		Labels:    []prometheus.Label(labelsListFlag),
 		Datapoint: prometheus.Datapoint(dpFlag),
 	})
-	return tsList
-}
 
-func camelToSnake(s string) string {
-	var matchFirstCap = regexp.MustCompile("(.)([A-Z][a-z]+)")
-	var matchAllCap = regexp.MustCompile("([a-z0-9])([A-Z])")
-	snake := matchFirstCap.ReplaceAllString(s, "${1}_${2}")
-	snake = matchAllCap.ReplaceAllString(snake, "${1}_${2}")
-	lower := strings.ToLower(snake)
-	return lower
+	return tsList
 }
 
 func New(logger *zap.Logger) Service {
